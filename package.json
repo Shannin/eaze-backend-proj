@@ -4,6 +4,7 @@
   },
   "dependencies": {
     "htmlparser": "^1.7.7",
+    "npm": "^5.4.2",
     "request": "^2.81.0",
     "soupselect": "^0.2.0"
   },

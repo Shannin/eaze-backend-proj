@@ -3,6 +3,7 @@
 var request = require('request')
 var htmlparser = require('htmlparser')
 var select = require('soupselect').select
+var npm = require('npm')
 
 var webpage = 'https://www.npmjs.com/browse/depended'
 
@@ -45,13 +46,42 @@ function parseTopPackages(dom, callback) {
     }
 }
 
+function getTarballLocationForPackage(pkg, callback) {
+    npm.load({
+        loaded: false
+    }, function (err) {
+        // catch errors
 
+        process.chdir('./packages');
+
+        npm.commands.pack(['level'], function(error, data) {
+            console.log(error)
+            console.log(data)
+        })
+
+      // npm.on("log", function (message) {
+      //   // log the progress of the installation
+      //   console.log(message);
+      // });
+    })
+}
 
 
 
 function downloadPackages (count, callback) {
     requestTopPackages(function(list, error) {
-        console.log(list)
+        if (error) {
+            console.log('ERROR: ' + error)
+            return
+        }
+
+        var topList = list.slice(0, count)
+
+        console.log(topList)
+
+        getTarballLocationForPackage(topList[0], function(completed, error) {
+
+        })
     })
 }
 
