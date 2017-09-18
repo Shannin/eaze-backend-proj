@@ -1,11 +1,14 @@
 'use strict'
 
-var request = require('request')
+var fs = require('fs-extra')
 var htmlparser = require('htmlparser')
-var select = require('soupselect').select
 var npm = require('npm')
+var request = require('request')
+var select = require('soupselect').select
+var targz = require('tar.gz')
 
 var webpage = 'https://www.npmjs.com/browse/depended'
+var tempDir = './tmp/'
 
 
 // I found an API that kind of lets you query the npm package registry
@@ -13,9 +16,7 @@ var webpage = 'https://www.npmjs.com/browse/depended'
 // I've gotten pretty proficient at making them
 
 function requestTopPackages(callback) {
-    request({
-        uri: webpage,
-    }, function(error, response, body) {
+    request(webpage, function(error, response, body) {
         var handler = new htmlparser.DefaultHandler(function (error, dom) {
             if (error) {
                 callback([], 'There was a problem parsing the webpage')
@@ -46,29 +47,46 @@ function parseTopPackages(dom, callback) {
     }
 }
 
-function getTarballLocationForPackage(pkg, callback) {
+function downloadPackage(pkg, callback) {
     npm.load({
         loaded: false
     }, function (err) {
-        // catch errors
+        if (err) {
+            callback(false, 'Could not load npm')
+            return
+        }
 
-        process.chdir('./packages');
+        // download
 
-        npm.commands.pack(['level'], function(error, data) {
-            console.log(error)
-            console.log(data)
+        var pkg = 'level'
+
+        npm.commands.info([pkg], function(error, data) {
+            // a little hacky :/
+            var latest = Object.keys(data)[0]
+            var info = data[latest]
+            var url = info.dist.tarball
+
+            var tmpPkgLoc = tempDir + pkg
+
+
+            var rs = request(url);
+            var ws = targz().createWriteStream(tmpPkgLoc);
+
+            ws.on('close', function() {
+                console.log('done!!')
+
+                // fs.move('./tmp/package', './packages/level')
+            })
+
+
+            rs.pipe(ws);
         })
-
-      // npm.on("log", function (message) {
-      //   // log the progress of the installation
-      //   console.log(message);
-      // });
     })
 }
 
 
 
-function downloadPackages (count, callback) {
+function downloadTopPackages (count, callback) {
     requestTopPackages(function(list, error) {
         if (error) {
             console.log('ERROR: ' + error)
@@ -79,10 +97,10 @@ function downloadPackages (count, callback) {
 
         console.log(topList)
 
-        getTarballLocationForPackage(topList[0], function(completed, error) {
+        downloadPackage(topList[0], function(completed, error) {
 
         })
     })
 }
 
-module.exports = downloadPackages
+module.exports = downloadTopPackages
