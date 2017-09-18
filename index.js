@@ -58,7 +58,7 @@ function downloadPackage(pkg, callback) {
 
         // download
 
-        var pkg = 'level'
+        console.log(pkg)
 
         npm.commands.info([pkg], function(error, data) {
             // a little hacky :/
