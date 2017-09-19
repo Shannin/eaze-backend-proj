@@ -10,19 +10,21 @@ var targz = require('tar.gz')
 
 var webpage = 'https://www.npmjs.com/browse/depended'
 var tempDir = './tmp/'
+var packageDir = './packages/'
 
 
-// I found an API that kind of lets you query the npm package registry
-// but I've built a couple web scrapers in the last couple months so
-// I've gotten pretty proficient at making them
+// I've built a couple web scrapers in the last couple months and
+// I've gotten pretty good at making them so I decided to go that route
 
 function requestTopPackages(callback) {
+    // gets the HTML page for top depeneded on packages from the NPM site
     request(webpage, function(error, response, body) {
         var handler = new htmlparser.DefaultHandler(function (error, dom) {
             if (error) {
                 callback([], 'There was a problem parsing the webpage')
             }
 
+            // parses out just the names
             parseTopPackages(dom, callback)
         })
 
@@ -32,6 +34,7 @@ function requestTopPackages(callback) {
 }
 
 function parseTopPackages(dom, callback) {
+    // selects all the HTML elements that wrap the package details
     var listElements = select(dom, '.package-details h3 a')
 
     if (listElements && listElements.length > 0) {
@@ -55,17 +58,19 @@ function downloadPackage(pkg, callback) {
             return
         }
 
-        // npm command to get package info, extracting the package URL
+        // npm command to get package info to get the package tarball URL
         npm.commands.view([pkg, 'dist'], function(error, data) {
-            // a little hacky :/
+            // what's returned is a object {[current version] -> [info]}
+            // so this looks a little hacky :/
             var latest = Object.keys(data)[0]
             var info = data[latest]
             var url = info.dist.tarball
 
             var tmpGzipLoc = tempDir + pkg + '.tgz'
             var tmpPkgLoc = tempDir + pkg
-            var pkgPkgLoc = './packages/' + pkg
+            var fnlPkgLoc = packageDir + pkg
 
+            // download the .tgz file and extract it
             var rs = request(url).pipe(fs.createWriteStream(tmpGzipLoc))
             rs.on('close', function() {
                 targz().extract(tmpGzipLoc, tmpPkgLoc, function(error) {
@@ -76,7 +81,7 @@ function downloadPackage(pkg, callback) {
 
                     // tar files are always unpacked into a /package directory
                     // moving that from tmp to /packages
-                    mv(tmpPkgLoc + '/package', pkgPkgLoc, {mkdirp: true}, function(error) {
+                    mv(tmpPkgLoc + '/package', fnlPkgLoc, {mkdirp: true}, function(error) {
                         callback(true, null)
                     })
                 })
