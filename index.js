@@ -1,7 +1,8 @@
 'use strict'
 
-var fs = require('fs-extra')
+var fs = require('fs')
 var htmlparser = require('htmlparser')
+var mv = require('mv')
 var npm = require('npm')
 var request = require('request')
 var select = require('soupselect').select
@@ -23,11 +24,11 @@ function requestTopPackages(callback) {
             }
 
             parseTopPackages(dom, callback)
-        });
+        })
 
         var parser = new htmlparser.Parser(handler)
         parser.parseComplete(body)
-    });
+    })
 }
 
 function parseTopPackages(dom, callback) {
@@ -48,43 +49,54 @@ function parseTopPackages(dom, callback) {
 }
 
 function downloadPackage(pkg, callback) {
-    npm.load({
-        loaded: false
-    }, function (err) {
-        if (err) {
+    npm.load(function (error) {
+        if (error) {
             callback(false, 'Could not load npm')
             return
         }
 
-        // download
-
-        console.log(pkg)
-
-        npm.commands.info([pkg], function(error, data) {
+        // npm command to get package info, extracting the package URL
+        npm.commands.view([pkg, 'dist'], function(error, data) {
             // a little hacky :/
             var latest = Object.keys(data)[0]
             var info = data[latest]
             var url = info.dist.tarball
 
+            var tmpGzipLoc = tempDir + pkg + '.tgz'
             var tmpPkgLoc = tempDir + pkg
+            var pkgPkgLoc = './packages/' + pkg
 
+            var rs = request(url).pipe(fs.createWriteStream(tmpGzipLoc))
+            rs.on('close', function() {
+                targz().extract(tmpGzipLoc, tmpPkgLoc, function(error) {
+                    if(error) {
+                        console.log(error.stack)
+                        callback(false, 'Unable to extract tar contents')
+                    }
 
-            var rs = request(url);
-            var ws = targz().createWriteStream(tmpPkgLoc);
-
-            ws.on('close', function() {
-                console.log('done!!')
-
-                // fs.move('./tmp/package', './packages/level')
-            })
-
-
-            rs.pipe(ws);
+                    // tar files are always unpacked into a /package directory
+                    // moving that from tmp to /packages
+                    mv(tmpPkgLoc + '/package', pkgPkgLoc, {mkdirp: true}, function(error) {
+                        callback(true, null)
+                    })
+                })
+           })
         })
     })
 }
 
-
+function downloadPackagesSequential(packages, callback) {
+    if (packages.length > 0) {
+        var pkg = packages.pop()
+        downloadPackage(pkg, function(completed, error) {
+            if (completed) {
+                downloadPackagesSequential(packages, callback)
+            }
+        })
+    } else {
+        callback()
+    }
+}
 
 function downloadTopPackages (count, callback) {
     requestTopPackages(function(list, error) {
@@ -94,12 +106,7 @@ function downloadTopPackages (count, callback) {
         }
 
         var topList = list.slice(0, count)
-
-        console.log(topList)
-
-        downloadPackage(topList[0], function(completed, error) {
-
-        })
+        downloadPackagesSequential(topList, callback)
     })
 }
 

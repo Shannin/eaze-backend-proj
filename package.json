@@ -3,8 +3,8 @@
     "test": "node test.js"
   },
   "dependencies": {
-    "fs-extra": "^4.0.2",
     "htmlparser": "^1.7.7",
+    "mv": "^2.1.1",
     "npm": "^5.4.2",
     "request": "^2.81.0",
     "soupselect": "^0.2.0",
