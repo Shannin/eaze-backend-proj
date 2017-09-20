@@ -22,6 +22,7 @@ function requestTopPackages(callback) {
         var handler = new htmlparser.DefaultHandler(function (error, dom) {
             if (error) {
                 callback([], 'There was a problem parsing the webpage')
+                return
             }
 
             // parses out just the names
@@ -60,6 +61,11 @@ function downloadPackage(pkg, callback) {
 
         // npm command to get package info to get the package tarball URL
         npm.commands.view([pkg, 'dist'], function(error, data) {
+            if (error) {
+                callback(false, 'Could not get package info from npm')
+                return
+            }
+
             // what's returned is a object {[current version] -> [info]}
             // so this looks a little hacky :/
             var latest = Object.keys(data)[0]
@@ -77,6 +83,7 @@ function downloadPackage(pkg, callback) {
                     if(error) {
                         console.log(error.stack)
                         callback(false, 'Unable to extract tar contents')
+                        return
                     }
 
                     // tar files are always unpacked into a /package directory
@@ -85,7 +92,7 @@ function downloadPackage(pkg, callback) {
                         callback(true, null)
                     })
                 })
-           })
+            })
         })
     })
 }
